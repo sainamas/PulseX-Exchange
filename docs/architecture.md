@@ -1,27 +1,36 @@
 
-# PulseX Exchange — Architecture
+## 8. Order Execution Workflow
 
-**Status:** Proposed architecture. Subject to updates as implementation progresses.
+The following diagram illustrates how a buy or sell order will travel through PulseX Exchange.
 
 ```mermaid
 flowchart TD
-    A["Browser Dashboard<br/>HTML, CSS, JavaScript"]
-    B["FastAPI Application<br/>Python, Pydantic"]
-    C["Order Routes<br/>REST API"]
-    D["Matching Engine<br/>Python"]
-    E["Order Book<br/>Buy and Sell Orders"]
-    F["Trade Records<br/>Executed Trades"]
-    G["WebSocket Notifications"]
+    A["User submits BUY or SELL order"]
+    B["FastAPI receives request"]
+    C["Pydantic validates order"]
+    D{"Is order valid?"}
+    E["Return validation error"]
+    F["Matching engine receives order"]
+    G["Check opposite order book"]
+    H{"Can orders match?"}
+    I["Execute trade"]
+    J["Update remaining quantity"]
+    K{"Incoming order fully filled?"}
+    L["Add remaining limit order to order book"]
+    M["Record completed trade"]
+    N["Send WebSocket notification"]
+    O["Return order status"]
+    P["Finish"]
 
-    A -->|"HTTP Requests"| B
-    A <-->|"WebSocket"| G
-    B --> C
-    C --> D
-    D <--> E
-    D --> F
-    D --> G
-
-    H["Uvicorn"] -.-> B
-    I["Pytest + HTTPX"] -.-> B
-    I -.-> D
+    A --> B --> C --> D
+    D -->|No| E
+    D -->|Yes| F --> G --> H
+    H -->|Yes| I --> J --> K
+    K -->|No| G
+    K -->|Yes| M
+    H -->|No| L
+    L --> O
+    M --> N --> O
+    E --> P
+    O --> P
 ```
