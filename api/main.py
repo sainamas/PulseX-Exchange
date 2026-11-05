@@ -250,13 +250,17 @@ def cancel_order(
         order_books[
             order.symbol
         ].remove_order(order)
+
         engines[
-             order.symbol
+            order.symbol
         ].publish_event(
             EventType.ORDER_CANCELLED,
             order.to_dict(),
         )
-        
+
+        engines[
+            order.symbol
+        ].publish_order_book_update()
 
         return order.to_dict()
 

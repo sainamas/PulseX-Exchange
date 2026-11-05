@@ -14,6 +14,7 @@ class EventType(str, Enum):
     ORDER_FILLED = "ORDER_FILLED"
     ORDER_PARTIALLY_FILLED = "ORDER_PARTIALLY_FILLED"
     ORDER_CANCELLED = "ORDER_CANCELLED"
+    ORDER_BOOK_UPDATED = "ORDER_BOOK_UPDATED"
 
 
 @dataclass
@@ -63,7 +64,10 @@ class MatchingEngine:
         self.events: list[Event] = []
         self._subscribers: list[Callable[[Event], None]] = []
 
-    def subscribe(self, callback: Callable[[Event], None]) -> None:
+    def subscribe(
+        self,
+        callback: Callable[[Event], None],
+    ) -> None:
         self._subscribers.append(callback)
 
     def publish_event(
@@ -83,7 +87,16 @@ class MatchingEngine:
 
         return event
 
-    def submit_order(self, order: Order) -> list[Trade]:
+    def publish_order_book_update(self) -> None:
+        self.publish_event(
+            EventType.ORDER_BOOK_UPDATED,
+            self.order_book.depth(),
+        )
+
+    def submit_order(
+        self,
+        order: Order,
+    ) -> list[Trade]:
         if order.symbol != self.order_book.symbol:
             raise ValueError(
                 f"Order symbol {order.symbol} does not match "
@@ -100,7 +113,10 @@ class MatchingEngine:
 
         return self._match_market_order(order)
 
-    def _match_limit_order(self, order: Order) -> list[Trade]:
+    def _match_limit_order(
+        self,
+        order: Order,
+    ) -> list[Trade]:
         trades = []
 
         while order.is_active():
@@ -115,7 +131,10 @@ class MatchingEngine:
                     "orders from the same trader cannot match"
                 )
 
-            if not self._prices_cross(order, opposite):
+            if not self._prices_cross(
+                order,
+                opposite,
+            ):
                 break
 
             trade = self._execute_trade(
@@ -126,14 +145,25 @@ class MatchingEngine:
             trades.append(trade)
 
             if not opposite.is_active():
-                self.order_book.remove_order(opposite)
+                self.order_book.remove_order(
+                    opposite
+                )
+
+                self.publish_order_book_update()
 
         if order.is_active():
-            self.order_book.add_order(order)
+            self.order_book.add_order(
+                order
+            )
+
+            self.publish_order_book_update()
 
         return trades
 
-    def _match_market_order(self, order: Order) -> list[Trade]:
+    def _match_market_order(
+        self,
+        order: Order,
+    ) -> list[Trade]:
         trades = []
 
         while order.is_active():
@@ -156,7 +186,11 @@ class MatchingEngine:
             trades.append(trade)
 
             if not opposite.is_active():
-                self.order_book.remove_order(opposite)
+                self.order_book.remove_order(
+                    opposite
+                )
+
+                self.publish_order_book_update()
 
         return trades
 

@@ -79,7 +79,7 @@ def test_websocket_receives_trade_event():
 
         received_events = []
 
-        for _ in range(6):
+        for _ in range(10):
             event = websocket.receive_json()
             received_events.append(event)
 
@@ -145,9 +145,7 @@ def test_websocket_receives_partial_fill_event():
 
         assert sell_response.status_code == 200
 
-        seller_order_id = (
-            sell_response.json()["order"]["order_id"]
-        )
+        seller_order_id = sell_response.json()["order"]["order_id"]
 
         submitted_event = websocket.receive_json()
 
@@ -170,7 +168,7 @@ def test_websocket_receives_partial_fill_event():
 
         events = []
 
-        for _ in range(6):
+        for _ in range(10):
             event = websocket.receive_json()
             events.append(event)
 
@@ -231,7 +229,7 @@ def test_websocket_receives_order_filled_event():
 
         events = []
 
-        for _ in range(8):
+        for _ in range(10):
             event = websocket.receive_json()
             events.append(event)
 
@@ -289,11 +287,69 @@ def test_websocket_receives_order_cancelled_event():
 
         assert cancel_response.status_code == 200
 
-        cancelled_event = websocket.receive_json()
+        events = []
 
-        assert cancelled_event["event_type"] == "ORDER_CANCELLED"
+        for _ in range(3):
+            event = websocket.receive_json()
+            events.append(event)
+
+            if event["event_type"] == "ORDER_CANCELLED":
+                break
+
+        cancelled_event = next(
+            event
+            for event in events
+            if event["event_type"] == "ORDER_CANCELLED"
+        )
+
         assert cancelled_event["data"]["order_id"] == order_id
         assert cancelled_event["data"]["status"] == "CANCELLED"
+
+        assert any(
+            event["event_type"] == "ORDER_BOOK_UPDATED"
+            for event in events
+        )
+
+
+def test_websocket_receives_order_book_updated_event():
+    with client.websocket_connect("/ws/BTC-USD") as websocket:
+        snapshot = websocket.receive_json()
+
+        assert snapshot["event_type"] == "ORDERBOOK_SNAPSHOT"
+
+        response = client.post(
+            "/orders",
+            json={
+                "symbol": "BTC-USD",
+                "side": "SELL",
+                "order_type": "LIMIT",
+                "quantity": 3,
+                "price": 30000,
+                "trader_id": "book-update-test",
+            },
+        )
+
+        assert response.status_code == 200
+
+        events = []
+
+        for _ in range(5):
+            event = websocket.receive_json()
+            events.append(event)
+
+            if event["event_type"] == "ORDER_BOOK_UPDATED":
+                break
+
+        book_update_event = next(
+            event
+            for event in events
+            if event["event_type"] == "ORDER_BOOK_UPDATED"
+        )
+
+        assert book_update_event["data"]["symbol"] == "BTC-USD"
+        assert len(book_update_event["data"]["asks"]) == 1
+        assert book_update_event["data"]["asks"][0]["price"] == 30000
+        assert book_update_event["data"]["asks"][0]["quantity"] == 3
 
 
 def test_websocket_events_are_symbol_specific():
@@ -321,9 +377,21 @@ def test_websocket_events_are_symbol_specific():
 
         assert eth_response.status_code == 200
 
-        eth_event = eth_websocket.receive_json()
+        eth_events = []
 
-        assert eth_event["event_type"] == "ORDER_SUBMITTED"
+        for _ in range(5):
+            event = eth_websocket.receive_json()
+            eth_events.append(event)
+
+            if event["event_type"] == "ORDER_SUBMITTED":
+                break
+
+        eth_event = next(
+            event
+            for event in eth_events
+            if event["event_type"] == "ORDER_SUBMITTED"
+        )
+
         assert eth_event["data"]["symbol"] == "ETH-USD"
 
         btc_response = client.post(
@@ -340,7 +408,19 @@ def test_websocket_events_are_symbol_specific():
 
         assert btc_response.status_code == 200
 
-        btc_event = btc_websocket.receive_json()
+        btc_events = []
 
-        assert btc_event["event_type"] == "ORDER_SUBMITTED"
+        for _ in range(5):
+            event = btc_websocket.receive_json()
+            btc_events.append(event)
+
+            if event["event_type"] == "ORDER_SUBMITTED":
+                break
+
+        btc_event = next(
+            event
+            for event in btc_events
+            if event["event_type"] == "ORDER_SUBMITTED"
+        )
+
         assert btc_event["data"]["symbol"] == "BTC-USD"
