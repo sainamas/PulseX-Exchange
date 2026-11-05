@@ -1,11 +1,20 @@
-# This file will contain the order matching logic.
-# It will match compatible buy and sell orders.
-from dataclasses import dataclass
+
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
+from typing import Callable
 from uuid import uuid4
 
 from .order import Order, OrderSide
 from .order_book import OrderBook
+
+
+class EventType(str, Enum):
+    ORDER_SUBMITTED = "ORDER_SUBMITTED"
+    TRADE_EXECUTED = "TRADE_EXECUTED"
+    ORDER_FILLED = "ORDER_FILLED"
+    ORDER_PARTIALLY_FILLED = "ORDER_PARTIALLY_FILLED"
+    ORDER_CANCELLED = "ORDER_CANCELLED"
 
 
 @dataclass
@@ -15,8 +24,10 @@ class Trade:
     quantity: float
     maker_order_id: str
     taker_order_id: str
-    trade_id: str = uuid4().__str__()
-    timestamp: datetime = datetime.now(timezone.utc)
+    trade_id: str = field(default_factory=lambda: str(uuid4()))
+    timestamp: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
     def to_dict(self) -> dict:
         return {
@@ -30,9 +41,31 @@ class Trade:
         }
 
 
+@dataclass
+class Event:
+    event_type: EventType
+    data: dict
+    timestamp: datetime = field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "event_type": self.event_type.value,
+            "data": self.data,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+
 class MatchingEngine:
     def __init__(self, order_book: OrderBook):
         self.order_book = order_book
+        self.trades: list[Trade] = []
+        self.events: list[Event] = []
+        self._subscribers: list[Callable[[Event], None]] = []
+
+    def subscribe(self, callback: Callable[[Event], None]) -> None:
+        self._subscribers.append(callback)
 
     def submit_order(self, order: Order) -> list[Trade]:
         if order.symbol != self.order_book.symbol:
@@ -40,6 +73,11 @@ class MatchingEngine:
                 f"Order symbol {order.symbol} does not match "
                 f"order book symbol {self.order_book.symbol}"
             )
+
+        self._publish(
+            EventType.ORDER_SUBMITTED,
+            order.to_dict(),
+        )
 
         if order.order_type.value == "LIMIT":
             return self._match_limit_order(order)
@@ -122,4 +160,44 @@ class MatchingEngine:
         taker.fill(quantity)
         maker.fill(quantity)
 
+        self.trades.append(trade)
+
+        self._publish(
+            EventType.TRADE_EXECUTED,
+            trade.to_dict(),
+        )
+
+        if maker.status.value == "FILLED":
+            self._publish(
+                EventType.ORDER_FILLED,
+                maker.to_dict(),
+            )
+        else:
+            self._publish(
+                EventType.ORDER_PARTIALLY_FILLED,
+                maker.to_dict(),
+            )
+
+        if taker.status.value == "FILLED":
+            self._publish(
+                EventType.ORDER_FILLED,
+                taker.to_dict(),
+            )
+        else:
+            self._publish(
+                EventType.ORDER_PARTIALLY_FILLED,
+                taker.to_dict(),
+            )
+
         return trade
+
+    def _publish(self, event_type: EventType, data: dict) -> None:
+        event = Event(
+            event_type=event_type,
+            data=data,
+        )
+
+        self.events.append(event)
+
+        for subscriber in self._subscribers:
+            subscriber(event)
