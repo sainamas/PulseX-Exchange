@@ -97,11 +97,7 @@ class MatchingEngine:
         self,
         order: Order,
     ) -> list[Trade]:
-        if order.symbol != self.order_book.symbol:
-            raise ValueError(
-                f"Order symbol {order.symbol} does not match "
-                f"order book symbol {self.order_book.symbol}"
-            )
+        self._validate_order_symbol(order)
 
         self.publish_event(
             EventType.ORDER_SUBMITTED,
@@ -112,6 +108,13 @@ class MatchingEngine:
             return self._match_limit_order(order)
 
         return self._match_market_order(order)
+
+    def _validate_order_symbol(self, order: Order) -> None:
+        if order.symbol != self.order_book.symbol:
+            raise ValueError(
+                f"Order symbol {order.symbol} does not match "
+                f"order book symbol {self.order_book.symbol}"
+            )
 
     def _match_limit_order(
         self,
@@ -125,21 +128,14 @@ class MatchingEngine:
             if opposite is None:
                 break
 
-            if opposite.trader_id == order.trader_id:
-                raise ValueError(
-                    "Self-trade prevention: "
-                    "orders from the same trader cannot match"
-                )
+            self._prevent_self_trade(order, opposite)
 
-            if not self._prices_cross(
-                order,
-                opposite,
-            ):
+            if not self._prices_cross(order, opposite):
                 break
 
             trade = self._execute_trade(
-                order,
-                opposite,
+                taker=order,
+                maker=opposite,
             )
 
             trades.append(trade)
@@ -148,7 +144,6 @@ class MatchingEngine:
 
             if not opposite.is_active():
                 self.order_book.remove_order(opposite)
-
                 self.publish_order_book_update()
 
         if order.is_active():
@@ -169,15 +164,11 @@ class MatchingEngine:
             if opposite is None:
                 break
 
-            if opposite.trader_id == order.trader_id:
-                raise ValueError(
-                    "Self-trade prevention: "
-                    "orders from the same trader cannot match"
-                )
+            self._prevent_self_trade(order, opposite)
 
             trade = self._execute_trade(
-                order,
-                opposite,
+                taker=order,
+                maker=opposite,
             )
 
             trades.append(trade)
@@ -186,7 +177,6 @@ class MatchingEngine:
 
             if not opposite.is_active():
                 self.order_book.remove_order(opposite)
-
                 self.publish_order_book_update()
 
         return trades
@@ -203,6 +193,17 @@ class MatchingEngine:
         return self.order_book.get_best_order(
             OrderSide.BUY
         )
+
+    def _prevent_self_trade(
+        self,
+        taker: Order,
+        maker: Order,
+    ) -> None:
+        if taker.trader_id == maker.trader_id:
+            raise ValueError(
+                "Self-trade prevention: "
+                "orders from the same trader cannot match"
+            )
 
     def _prices_cross(
         self,
@@ -243,31 +244,31 @@ class MatchingEngine:
 
         self.trades.append(trade)
 
+        self._publish_trade_event(trade)
+        self._publish_order_status_event(maker)
+        self._publish_order_status_event(taker)
+
+        return trade
+
+    def _publish_trade_event(
+        self,
+        trade: Trade,
+    ) -> None:
         self.publish_event(
             EventType.TRADE_EXECUTED,
             trade.to_dict(),
         )
 
-        if maker.status.value == "FILLED":
-            self.publish_event(
-                EventType.ORDER_FILLED,
-                maker.to_dict(),
-            )
+    def _publish_order_status_event(
+        self,
+        order: Order,
+    ) -> None:
+        if order.status.value == "FILLED":
+            event_type = EventType.ORDER_FILLED
         else:
-            self.publish_event(
-                EventType.ORDER_PARTIALLY_FILLED,
-                maker.to_dict(),
-            )
+            event_type = EventType.ORDER_PARTIALLY_FILLED
 
-        if taker.status.value == "FILLED":
-            self.publish_event(
-                EventType.ORDER_FILLED,
-                taker.to_dict(),
-            )
-        else:
-            self.publish_event(
-                EventType.ORDER_PARTIALLY_FILLED,
-                taker.to_dict(),
-            )
-
-        return trade
+        self.publish_event(
+            event_type,
+            order.to_dict(),
+        )
