@@ -34,3 +34,57 @@ def test_unknown_symbol_websocket_is_rejected():
             pass
 
     assert exc_info.value.code == 1008
+
+
+def test_websocket_receives_trade_event():
+    with client.websocket_connect("/ws/BTC-USD") as websocket:
+        snapshot = websocket.receive_json()
+
+        assert snapshot["event_type"] == "ORDERBOOK_SNAPSHOT"
+
+        sell_response = client.post(
+            "/orders",
+            json={
+                "symbol": "BTC-USD",
+                "side": "SELL",
+                "order_type": "LIMIT",
+                "quantity": 2,
+                "price": 100,
+                "trader_id": "ws-seller-1",
+            },
+        )
+
+        assert sell_response.status_code == 200
+
+        buy_response = client.post(
+            "/orders",
+            json={
+                "symbol": "BTC-USD",
+                "side": "BUY",
+                "order_type": "LIMIT",
+                "quantity": 2,
+                "price": 100,
+                "trader_id": "ws-buyer-1",
+            },
+        )
+
+        assert buy_response.status_code == 200
+
+        received_events = []
+
+        for _ in range(6):
+            event = websocket.receive_json()
+            received_events.append(event)
+
+            if event["event_type"] == "TRADE_EXECUTED":
+                break
+
+        trade_event = next(
+            event
+            for event in received_events
+            if event["event_type"] == "TRADE_EXECUTED"
+        )
+
+        assert trade_event["data"]["symbol"] == "BTC-USD"
+        assert trade_event["data"]["price"] == 100
+        assert trade_event["data"]["quantity"] == 2
