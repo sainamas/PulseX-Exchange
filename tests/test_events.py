@@ -3,92 +3,78 @@ from trading.order import Order, OrderSide, OrderType
 from trading.order_book import OrderBook
 
 
-def make_order(side, order_type, quantity, price=None):
+def make_order(
+    side,
+    quantity,
+    price,
+    trader_id,
+):
     return Order(
         symbol="BTC-USD",
         side=side,
-        order_type=order_type,
+        order_type=OrderType.LIMIT,
         quantity=quantity,
         price=price,
+        trader_id=trader_id,
     )
+
+
+def setup_trade():
+    book = OrderBook("BTC-USD")
+    engine = MatchingEngine(book)
+
+    sell = make_order(
+        OrderSide.SELL,
+        5,
+        100,
+        "seller-1",
+    )
+
+    book.add_order(sell)
+
+    buy = make_order(
+        OrderSide.BUY,
+        5,
+        100,
+        "buyer-1",
+    )
+
+    return engine, sell, buy
 
 
 def test_trade_history_is_recorded():
-    book = OrderBook("BTC-USD")
-    engine = MatchingEngine(book)
+    engine, _, buy = setup_trade()
 
-    sell = make_order(
-        OrderSide.SELL,
-        OrderType.LIMIT,
-        5,
-        100,
-    )
+    trades = engine.submit_order(buy)
 
-    book.add_order(sell)
-
-    buy = make_order(
-        OrderSide.BUY,
-        OrderType.LIMIT,
-        5,
-        100,
-    )
-
-    engine.submit_order(buy)
-
+    assert len(trades) == 1
     assert len(engine.trades) == 1
-    assert engine.trades[0].price == 100
-    assert engine.trades[0].quantity == 5
+
+    trade = engine.trades[0]
+
+    assert trade.symbol == "BTC-USD"
+    assert trade.price == 100
+    assert trade.quantity == 5
 
 
 def test_trade_to_dict():
-    book = OrderBook("BTC-USD")
-    engine = MatchingEngine(book)
-
-    sell = make_order(
-        OrderSide.SELL,
-        OrderType.LIMIT,
-        2,
-        100,
-    )
-
-    book.add_order(sell)
-
-    buy = make_order(
-        OrderSide.BUY,
-        OrderType.LIMIT,
-        2,
-        100,
-    )
+    engine, _, buy = setup_trade()
 
     trades = engine.submit_order(buy)
-    data = trades[0].to_dict()
 
-    assert data["symbol"] == "BTC-USD"
-    assert data["price"] == 100
-    assert data["quantity"] == 2
-    assert "trade_id" in data
-    assert "timestamp" in data
+    trade_data = trades[0].to_dict()
+
+    assert trade_data["symbol"] == "BTC-USD"
+    assert trade_data["price"] == 100
+    assert trade_data["quantity"] == 5
+    assert "trade_id" in trade_data
+    assert "maker_order_id" in trade_data
+    assert "taker_order_id" in trade_data
+    assert "timestamp" in trade_data
 
 
 def test_events_are_recorded():
-    book = OrderBook("BTC-USD")
-    engine = MatchingEngine(book)
-
-    sell = make_order(
-        OrderSide.SELL,
-        OrderType.LIMIT,
-        5,
-        100,
-    )
-
-    book.add_order(sell)
-
-    buy = make_order(
-        OrderSide.BUY,
-        OrderType.LIMIT,
-        5,
-        100,
-    )
+    engine, _, buy = setup_trade()
 
     engine.submit_order(buy)
 
@@ -103,8 +89,7 @@ def test_events_are_recorded():
 
 
 def test_subscriber_receives_events():
-    book = OrderBook("BTC-USD")
-    engine = MatchingEngine(book)
+    engine, _, buy = setup_trade()
 
     received_events = []
 
@@ -113,23 +98,15 @@ def test_subscriber_receives_events():
 
     engine.subscribe(subscriber)
 
-    sell = make_order(
-        OrderSide.SELL,
-        OrderType.LIMIT,
-        5,
-        100,
-    )
-
-    book.add_order(sell)
-
-    buy = make_order(
-        OrderSide.BUY,
-        OrderType.LIMIT,
-        5,
-        100,
-    )
-
     engine.submit_order(buy)
 
-    assert len(received_events) >= 3
-    assert received_events[0].event_type == EventType.ORDER_SUBMITTED
+    assert len(received_events) > 0
+
+    event_types = [
+        event.event_type
+        for event in received_events
+    ]
+
+    assert EventType.ORDER_SUBMITTED in event_types
+    assert EventType.TRADE_EXECUTED in event_types
+    assert EventType.ORDER_FILLED in event_types

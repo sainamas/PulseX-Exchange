@@ -43,6 +43,37 @@ class Order:
     filled_quantity: float = 0.0
     status: OrderStatus = OrderStatus.NEW
 
+    def __post_init__(self):
+        if not self.symbol.strip():
+            raise ValueError("Symbol cannot be empty")
+
+        if self.quantity <= 0:
+            raise ValueError(
+                "Order quantity must be greater than zero"
+            )
+
+        if self.order_type == OrderType.LIMIT:
+            if self.price is None:
+                raise ValueError(
+                    "Limit orders require a price"
+                )
+
+            if self.price <= 0:
+                raise ValueError(
+                    "Order price must be greater than zero"
+                )
+
+        if self.order_type == OrderType.MARKET:
+            if self.price is not None:
+                raise ValueError(
+                    "Market orders must not have a price"
+                )
+
+        if not self.trader_id.strip():
+            raise ValueError(
+                "Trader ID cannot be empty"
+            )
+
     @property
     def remaining_quantity(self) -> float:
         return self.quantity - self.filled_quantity
@@ -69,6 +100,11 @@ class Order:
         if self.status == OrderStatus.FILLED:
             raise ValueError(
                 "Filled order cannot be cancelled"
+            )
+
+        if self.status == OrderStatus.CANCELLED:
+            raise ValueError(
+                "Order is already cancelled"
             )
 
         self.status = OrderStatus.CANCELLED

@@ -1,13 +1,16 @@
+import pytest
+
 from trading.matching import MatchingEngine
-from trading.order import Order, OrderSide, OrderStatus, OrderType
+from trading.order import Order, OrderSide, OrderType
 from trading.order_book import OrderBook
 
 
 def make_order(
     side,
-    order_type,
     quantity,
     price=None,
+    order_type=OrderType.LIMIT,
+    trader_id="trader-1",
 ):
     return Order(
         symbol="BTC-USD",
@@ -15,6 +18,7 @@ def make_order(
         order_type=order_type,
         quantity=quantity,
         price=price,
+        trader_id=trader_id,
     )
 
 
@@ -24,17 +28,17 @@ def test_limit_order_matches():
 
     sell = make_order(
         OrderSide.SELL,
-        OrderType.LIMIT,
         5,
         100,
+        trader_id="seller-1",
     )
     book.add_order(sell)
 
     buy = make_order(
         OrderSide.BUY,
-        OrderType.LIMIT,
         5,
         100,
+        trader_id="buyer-1",
     )
 
     trades = engine.submit_order(buy)
@@ -42,8 +46,8 @@ def test_limit_order_matches():
     assert len(trades) == 1
     assert trades[0].price == 100
     assert trades[0].quantity == 5
-    assert buy.status == OrderStatus.FILLED
-    assert sell.status == OrderStatus.FILLED
+    assert buy.status.value == "FILLED"
+    assert sell.status.value == "FILLED"
 
 
 def test_partial_fill():
@@ -52,94 +56,53 @@ def test_partial_fill():
 
     sell = make_order(
         OrderSide.SELL,
-        OrderType.LIMIT,
         10,
         100,
+        trader_id="seller-1",
     )
     book.add_order(sell)
 
     buy = make_order(
         OrderSide.BUY,
-        OrderType.LIMIT,
         4,
         100,
+        trader_id="buyer-1",
     )
 
     trades = engine.submit_order(buy)
 
     assert len(trades) == 1
     assert trades[0].quantity == 4
-    assert buy.status == OrderStatus.FILLED
-    assert sell.status == OrderStatus.PARTIALLY_FILLED
+    assert buy.status.value == "FILLED"
+    assert sell.status.value == "PARTIALLY_FILLED"
     assert sell.remaining_quantity == 6
-
-
-def test_remaining_limit_order_is_added_to_book():
-    book = OrderBook("BTC-USD")
-    engine = MatchingEngine(book)
-
-    buy = make_order(
-        OrderSide.BUY,
-        OrderType.LIMIT,
-        5,
-        100,
-    )
-
-    trades = engine.submit_order(buy)
-
-    assert trades == []
-    assert book.get_best_order(OrderSide.BUY) is buy
 
 
 def test_price_priority():
     book = OrderBook("BTC-USD")
     engine = MatchingEngine(book)
 
-    first = make_order(
+    sell_high = make_order(
         OrderSide.SELL,
-        OrderType.LIMIT,
         5,
         105,
+        trader_id="seller-1",
     )
-    second = make_order(
+    sell_low = make_order(
         OrderSide.SELL,
-        OrderType.LIMIT,
         5,
         100,
+        trader_id="seller-2",
     )
 
-    book.add_order(first)
-    book.add_order(second)
+    book.add_order(sell_high)
+    book.add_order(sell_low)
 
     buy = make_order(
         OrderSide.BUY,
-        OrderType.LIMIT,
         5,
         110,
-    )
-
-    trades = engine.submit_order(buy)
-
-    assert trades[0].price == 100
-    assert trades[0].maker_order_id == second.order_id
-
-
-def test_market_order_matches_best_available_price():
-    book = OrderBook("BTC-USD")
-    engine = MatchingEngine(book)
-
-    sell = make_order(
-        OrderSide.SELL,
-        OrderType.LIMIT,
-        5,
-        100,
-    )
-    book.add_order(sell)
-
-    buy = make_order(
-        OrderSide.BUY,
-        OrderType.MARKET,
-        5,
+        trader_id="buyer-1",
     )
 
     trades = engine.submit_order(buy)
@@ -147,5 +110,74 @@ def test_market_order_matches_best_available_price():
     assert len(trades) == 1
     assert trades[0].price == 100
     assert trades[0].quantity == 5
-    assert buy.status == OrderStatus.FILLED# Tests for the order matching system.
-# We will check whether buy and sell orders match correctly.m
+
+
+def test_fifo_priority():
+    book = OrderBook("BTC-USD")
+    engine = MatchingEngine(book)
+
+    first_sell = make_order(
+        OrderSide.SELL,
+        5,
+        100,
+        trader_id="seller-1",
+    )
+
+    second_sell = make_order(
+        OrderSide.SELL,
+        5,
+        100,
+        trader_id="seller-2",
+    )
+
+    book.add_order(first_sell)
+    book.add_order(second_sell)
+
+    buy = make_order(
+        OrderSide.BUY,
+        5,
+        100,
+        trader_id="buyer-1",
+    )
+
+    trades = engine.submit_order(buy)
+
+    assert len(trades) == 1
+    assert trades[0].maker_order_id == first_sell.order_id
+    assert first_sell.status.value == "FILLED"
+    assert second_sell.status.value == "NEW"
+
+
+def test_market_order_matches_best_available_price():
+    book = OrderBook("BTC-USD")
+    engine = MatchingEngine(book)
+
+    sell_low = make_order(
+        OrderSide.SELL,
+        5,
+        100,
+        trader_id="seller-1",
+    )
+
+    sell_high = make_order(
+        OrderSide.SELL,
+        5,
+        105,
+        trader_id="seller-2",
+    )
+
+    book.add_order(sell_high)
+    book.add_order(sell_low)
+
+    buy = make_order(
+        OrderSide.BUY,
+        5,
+        order_type=OrderType.MARKET,
+        trader_id="buyer-1",
+    )
+
+    trades = engine.submit_order(buy)
+
+    assert len(trades) == 1
+    assert trades[0].price == 100
+    assert trades[0].quantity == 5

@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -93,6 +92,12 @@ class MatchingEngine:
             if opposite is None:
                 break
 
+            if opposite.trader_id == order.trader_id:
+                raise ValueError(
+                    "Self-trade prevention: "
+                    "orders from the same trader cannot match"
+                )
+
             if not self._prices_cross(order, opposite):
                 break
 
@@ -116,6 +121,12 @@ class MatchingEngine:
             if opposite is None:
                 break
 
+            if opposite.trader_id == order.trader_id:
+                raise ValueError(
+                    "Self-trade prevention: "
+                    "orders from the same trader cannot match"
+                )
+
             trade = self._execute_trade(order, opposite)
             trades.append(trade)
 
@@ -130,7 +141,11 @@ class MatchingEngine:
 
         return self.order_book.get_best_order(OrderSide.BUY)
 
-    def _prices_cross(self, incoming: Order, resting: Order) -> bool:
+    def _prices_cross(
+        self,
+        incoming: Order,
+        resting: Order,
+    ) -> bool:
         if incoming.price is None or resting.price is None:
             return True
 
@@ -191,7 +206,11 @@ class MatchingEngine:
 
         return trade
 
-    def _publish(self, event_type: EventType, data: dict) -> None:
+    def _publish(
+        self,
+        event_type: EventType,
+        data: dict,
+    ) -> None:
         event = Event(
             event_type=event_type,
             data=data,

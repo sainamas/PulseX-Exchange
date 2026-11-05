@@ -1,3 +1,5 @@
+import pytest
+
 from trading.order import (
     Order,
     OrderSide,
@@ -65,3 +67,46 @@ def test_cancel_order():
     order.cancel()
 
     assert order.status == OrderStatus.CANCELLED
+
+
+def test_limit_order_requires_price():
+    with pytest.raises(ValueError):
+        Order(
+            symbol="BTC-USD",
+            side=OrderSide.BUY,
+            order_type=OrderType.LIMIT,
+            quantity=5,
+        )
+
+
+def test_market_order_cannot_have_price():
+    with pytest.raises(ValueError):
+        Order(
+            symbol="BTC-USD",
+            side=OrderSide.BUY,
+            order_type=OrderType.MARKET,
+            quantity=5,
+            price=100,
+        )
+
+
+def test_order_quantity_must_be_positive():
+    with pytest.raises(ValueError):
+        Order(
+            symbol="BTC-USD",
+            side=OrderSide.BUY,
+            order_type=OrderType.LIMIT,
+            quantity=0,
+            price=100,
+        )
+
+
+def test_order_price_must_be_positive():
+    with pytest.raises(ValueError):
+        Order(
+            symbol="BTC-USD",
+            side=OrderSide.BUY,
+            order_type=OrderType.LIMIT,
+            quantity=5,
+            price=0,
+        )
