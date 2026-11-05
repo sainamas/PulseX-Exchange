@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+import asyncio
+
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
@@ -6,18 +9,27 @@ from trading.order import Order, OrderSide, OrderType
 from trading.order_book import OrderBook
 
 
-app = FastAPI(
-    title="PulseX Exchange API",
-    version="1.0.0",
-)
+SYMBOLS = {
+    "BTC-USD",
+    "ETH-USD",
+}
 
-order_book = OrderBook("BTC-USD")
-engine = MatchingEngine(order_book)
+
+order_books: dict[str, OrderBook] = {
+    symbol: OrderBook(symbol)
+    for symbol in SYMBOLS
+}
+
+engines: dict[str, MatchingEngine] = {
+    symbol: MatchingEngine(order_books[symbol])
+    for symbol in SYMBOLS
+}
+
 orders: dict[str, Order] = {}
 
 
 class OrderRequest(BaseModel):
-    symbol: str = "BTC-USD"
+    symbol: str
     side: OrderSide
     order_type: OrderType
     quantity: float = Field(gt=0)
@@ -53,21 +65,31 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-@app.on_event("startup")
-async def startup():
-    async def publish(event: Event):
-        await manager.broadcast(event)
-
+def create_event_subscriber():
     def subscriber(event: Event):
-        import asyncio
-
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(publish(event))
+            loop.create_task(manager.broadcast(event))
         except RuntimeError:
             pass
 
-    engine.subscribe(subscriber)
+    return subscriber
+
+
+for engine in engines.values():
+    engine.subscribe(create_event_subscriber())
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+
+
+app = FastAPI(
+    title="PulseX Exchange API",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 
 @app.get("/health")
@@ -75,15 +97,18 @@ def health():
     return {
         "status": "ok",
         "service": "PulseX Exchange",
+        "symbols": sorted(SYMBOLS),
     }
 
 
 @app.post("/orders")
 def submit_order(request: OrderRequest):
-    if request.symbol != order_book.symbol:
+    symbol = request.symbol.upper()
+
+    if symbol not in SYMBOLS:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported trading symbol",
+            detail=f"Unsupported trading symbol: {symbol}",
         )
 
     if (
@@ -105,7 +130,7 @@ def submit_order(request: OrderRequest):
         )
 
     order = Order(
-        symbol=request.symbol,
+        symbol=symbol,
         side=request.side,
         order_type=request.order_type,
         quantity=request.quantity,
@@ -115,7 +140,7 @@ def submit_order(request: OrderRequest):
 
     orders[order.order_id] = order
 
-    trades = engine.submit_order(order)
+    trades = engines[symbol].submit_order(order)
 
     return {
         "order": order.to_dict(),
@@ -156,9 +181,11 @@ def cancel_order(order_id: str):
         )
 
     order.cancel()
+
+    order_book = order_books[order.symbol]
     order_book.remove_order(order)
 
-    engine._publish(
+    engines[order.symbol]._publish(
         EventType.ORDER_CANCELLED,
         order.to_dict(),
     )
@@ -166,27 +193,52 @@ def cancel_order(order_id: str):
     return order.to_dict()
 
 
-@app.get("/orderbook")
-def get_order_book():
-    return order_book.depth()
+@app.get("/orderbook/{symbol}")
+def get_order_book(symbol: str):
+    symbol = symbol.upper()
+
+    if symbol not in SYMBOLS:
+        raise HTTPException(
+            status_code=404,
+            detail="Trading symbol not found",
+        )
+
+    return order_books[symbol].depth()
 
 
-@app.get("/trades")
-def get_trades():
+@app.get("/trades/{symbol}")
+def get_trades(symbol: str):
+    symbol = symbol.upper()
+
+    if symbol not in SYMBOLS:
+        raise HTTPException(
+            status_code=404,
+            detail="Trading symbol not found",
+        )
+
     return [
         trade.to_dict()
-        for trade in engine.trades
+        for trade in engines[symbol].trades
     ]
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+@app.websocket("/ws/{symbol}")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    symbol: str,
+):
+    symbol = symbol.upper()
+
+    if symbol not in SYMBOLS:
+        await websocket.close(code=1008)
+        return
+
     await manager.connect(websocket)
 
     try:
         await websocket.send_json({
             "event_type": "ORDERBOOK_SNAPSHOT",
-            "data": order_book.depth(),
+            "data": order_books[symbol].depth(),
         })
 
         while True:

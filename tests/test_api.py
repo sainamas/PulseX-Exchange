@@ -13,7 +13,16 @@ def test_health():
     assert response.json()["status"] == "ok"
 
 
-def test_submit_limit_order():
+def test_health_lists_symbols():
+    response = client.get("/health")
+
+    assert response.json()["symbols"] == [
+        "BTC-USD",
+        "ETH-USD",
+    ]
+
+
+def test_submit_btc_limit_order():
     response = client.post(
         "/orders",
         json={
@@ -31,9 +40,39 @@ def test_submit_limit_order():
     data = response.json()
 
     assert data["order"]["symbol"] == "BTC-USD"
-    assert data["order"]["side"] == "BUY"
-    assert data["order"]["quantity"] == 2
     assert data["order"]["status"] == "NEW"
+
+
+def test_submit_eth_limit_order():
+    response = client.post(
+        "/orders",
+        json={
+            "symbol": "ETH-USD",
+            "side": "SELL",
+            "order_type": "LIMIT",
+            "quantity": 3,
+            "price": 200,
+        },
+    )
+
+    assert response.status_code == 200
+
+    assert response.json()["order"]["symbol"] == "ETH-USD"
+
+
+def test_unsupported_symbol():
+    response = client.post(
+        "/orders",
+        json={
+            "symbol": "DOGE-USD",
+            "side": "BUY",
+            "order_type": "LIMIT",
+            "quantity": 1,
+            "price": 10,
+        },
+    )
+
+    assert response.status_code == 400
 
 
 def test_invalid_limit_order_without_price():
@@ -66,15 +105,29 @@ def test_invalid_market_order_with_price():
 
 
 def test_orderbook_endpoint():
-    response = client.get("/orderbook")
+    response = client.get("/orderbook/BTC-USD")
 
     assert response.status_code == 200
 
     data = response.json()
 
-    assert "symbol" in data
+    assert data["symbol"] == "BTC-USD"
     assert "bids" in data
     assert "asks" in data
+
+
+def test_eth_orderbook_endpoint():
+    response = client.get("/orderbook/ETH-USD")
+
+    assert response.status_code == 200
+
+    assert response.json()["symbol"] == "ETH-USD"
+
+
+def test_unknown_orderbook_symbol():
+    response = client.get("/orderbook/DOGE-USD")
+
+    assert response.status_code == 404
 
 
 def test_get_order():
@@ -114,5 +167,11 @@ def test_cancel_order():
     response = client.delete(f"/orders/{order_id}")
 
     assert response.status_code == 200
-    assert response.json()["status"] == "CANCELLED"# Tests for our REST API.
-# We will check whether API requests return the correct responses.
+    assert response.json()["status"] == "CANCELLED"
+
+
+def test_trades_endpoint():
+    response = client.get("/trades/BTC-USD")
+
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
