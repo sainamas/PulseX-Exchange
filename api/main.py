@@ -82,16 +82,35 @@ def create_event_subscriber(symbol: str):
     return subscriber
 
 
-for symbol in SYMBOLS:
-    order_books[symbol] = OrderBook(symbol)
+def reset_exchange_state():
+    """
+    Reset the in-memory exchange state.
 
-    engines[symbol] = MatchingEngine(
-        order_books[symbol]
-    )
+    This is mainly useful for tests and local development.
+    Each symbol receives a fresh order book and matching engine,
+    while the WebSocket event subscriber remains attached.
+    """
 
-    engines[symbol].subscribe(
-        create_event_subscriber(symbol)
-    )
+    order_books.clear()
+    engines.clear()
+    orders.clear()
+
+    for symbol in SYMBOLS:
+        order_book = OrderBook(symbol)
+
+        engine = MatchingEngine(
+            order_book
+        )
+
+        engine.subscribe(
+            create_event_subscriber(symbol)
+        )
+
+        order_books[symbol] = order_book
+        engines[symbol] = engine
+
+
+reset_exchange_state()
 
 
 @asynccontextmanager
