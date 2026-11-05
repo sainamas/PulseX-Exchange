@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from trading.matching import Event, EventType, MatchingEngine
-from trading.order import Order, OrderSide, OrderType
+from trading.order import Order, OrderSide, OrderStatus, OrderType
 from trading.order_book import OrderBook
 
 
@@ -140,7 +140,15 @@ def submit_order(request: OrderRequest):
 
     orders[order.order_id] = order
 
-    trades = engines[symbol].submit_order(order)
+    try:
+        trades = engines[symbol].submit_order(order)
+    except ValueError as exc:
+        orders.pop(order.order_id, None)
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        )
 
     return {
         "order": order.to_dict(),
@@ -149,6 +157,49 @@ def submit_order(request: OrderRequest):
             for trade in trades
         ],
     }
+
+
+@app.get("/orders")
+def list_orders(
+    symbol: str | None = None,
+    trader_id: str | None = None,
+    status: OrderStatus | None = None,
+):
+    filtered_orders = list(orders.values())
+
+    if symbol is not None:
+        symbol = symbol.upper()
+
+        if symbol not in SYMBOLS:
+            raise HTTPException(
+                status_code=404,
+                detail="Trading symbol not found",
+            )
+
+        filtered_orders = [
+            order
+            for order in filtered_orders
+            if order.symbol == symbol
+        ]
+
+    if trader_id is not None:
+        filtered_orders = [
+            order
+            for order in filtered_orders
+            if order.trader_id == trader_id
+        ]
+
+    if status is not None:
+        filtered_orders = [
+            order
+            for order in filtered_orders
+            if order.status == status
+        ]
+
+    return [
+        order.to_dict()
+        for order in filtered_orders
+    ]
 
 
 @app.get("/orders/{order_id}")
