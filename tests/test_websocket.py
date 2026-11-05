@@ -352,6 +352,76 @@ def test_websocket_receives_order_book_updated_event():
         assert book_update_event["data"]["asks"][0]["quantity"] == 3
 
 
+def test_websocket_order_book_updates_after_partial_fill():
+    with client.websocket_connect("/ws/BTC-USD") as websocket:
+        snapshot = websocket.receive_json()
+
+        assert snapshot["event_type"] == "ORDERBOOK_SNAPSHOT"
+
+        sell_response = client.post(
+            "/orders",
+            json={
+                "symbol": "BTC-USD",
+                "side": "SELL",
+                "order_type": "LIMIT",
+                "quantity": 5,
+                "price": 10000,
+                "trader_id": "book-partial-seller",
+            },
+        )
+
+        assert sell_response.status_code == 200
+
+        submitted_event = websocket.receive_json()
+
+        assert submitted_event["event_type"] == "ORDER_SUBMITTED"
+
+        initial_book_event = websocket.receive_json()
+
+        assert initial_book_event["event_type"] == "ORDER_BOOK_UPDATED"
+        assert initial_book_event["data"]["symbol"] == "BTC-USD"
+        assert initial_book_event["data"]["asks"][0]["price"] == 10000
+        assert initial_book_event["data"]["asks"][0]["quantity"] == 5
+
+        buy_response = client.post(
+            "/orders",
+            json={
+                "symbol": "BTC-USD",
+                "side": "BUY",
+                "order_type": "LIMIT",
+                "quantity": 2,
+                "price": 10000,
+                "trader_id": "book-partial-buyer",
+            },
+        )
+
+        assert buy_response.status_code == 200
+
+        book_updates = []
+
+        for _ in range(10):
+            event = websocket.receive_json()
+
+            if event["event_type"] == "ORDER_BOOK_UPDATED":
+                book_updates.append(event)
+
+                asks = event["data"]["asks"]
+
+                if (
+                    asks
+                    and asks[0]["price"] == 10000
+                    and asks[0]["quantity"] == 3
+                ):
+                    break
+
+        assert any(
+            event["data"]["asks"]
+            and event["data"]["asks"][0]["price"] == 10000
+            and event["data"]["asks"][0]["quantity"] == 3
+            for event in book_updates
+        )
+
+
 def test_websocket_events_are_symbol_specific():
     with (
         client.websocket_connect("/ws/BTC-USD") as btc_websocket,

@@ -144,18 +144,15 @@ class MatchingEngine:
 
             trades.append(trade)
 
+            self.publish_order_book_update()
+
             if not opposite.is_active():
-                self.order_book.remove_order(
-                    opposite
-                )
+                self.order_book.remove_order(opposite)
 
                 self.publish_order_book_update()
 
         if order.is_active():
-            self.order_book.add_order(
-                order
-            )
-
+            self.order_book.add_order(order)
             self.publish_order_book_update()
 
         return trades
@@ -185,10 +182,10 @@ class MatchingEngine:
 
             trades.append(trade)
 
+            self.publish_order_book_update()
+
             if not opposite.is_active():
-                self.order_book.remove_order(
-                    opposite
-                )
+                self.order_book.remove_order(opposite)
 
                 self.publish_order_book_update()
 
