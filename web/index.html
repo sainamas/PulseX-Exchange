@@ -1,1 +1,443 @@
-<!-- Main page for the PulseX trading dashboard -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>PulseX Exchange</title>
+
+    <link
+        rel="stylesheet"
+        href="/terminal/style.css"
+    >
+</head>
+
+<body>
+
+<header class="topbar">
+
+    <div class="brand">
+        <div class="brand-mark">PX</div>
+
+        <div>
+            <h1>PulseX</h1>
+            <span>Real-Time Exchange</span>
+        </div>
+    </div>
+
+    <div class="connection-status">
+        <span
+            id="connectionDot"
+            class="status-dot offline"
+        ></span>
+
+        <span id="connectionText">
+            Disconnected
+        </span>
+    </div>
+
+</header>
+
+
+<main class="dashboard">
+
+    <section class="market-header">
+
+        <div class="symbol-selector">
+
+            <button
+                class="symbol-button active"
+                data-symbol="BTC-USD"
+            >
+                BTC-USD
+            </button>
+
+            <button
+                class="symbol-button"
+                data-symbol="ETH-USD"
+            >
+                ETH-USD
+            </button>
+
+        </div>
+
+        <div class="market-stats">
+
+            <div class="stat-card">
+                <span>Best Bid</span>
+                <strong id="bestBid">—</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Best Ask</span>
+                <strong id="bestAsk">—</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Spread</span>
+                <strong id="spread">—</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>Last Trade</span>
+                <strong id="lastTrade">—</strong>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="trading-grid">
+
+        <div class="panel order-panel">
+
+            <div class="panel-header">
+                <div>
+                    <h2>Place Order</h2>
+                    <p>Submit a new exchange order</p>
+                </div>
+            </div>
+
+
+            <div class="side-selector">
+
+                <button
+                    id="buyButton"
+                    class="side-button buy active"
+                    type="button"
+                >
+                    Buy
+                </button>
+
+                <button
+                    id="sellButton"
+                    class="side-button sell"
+                    type="button"
+                >
+                    Sell
+                </button>
+
+            </div>
+
+
+            <div class="field">
+
+                <label for="orderType">
+                    Order Type
+                </label>
+
+                <select id="orderType">
+                    <option value="LIMIT">
+                        Limit
+                    </option>
+
+                    <option value="MARKET">
+                        Market
+                    </option>
+                </select>
+
+            </div>
+
+
+            <div class="field">
+
+                <label for="quantity">
+                    Quantity
+                </label>
+
+                <input
+                    id="quantity"
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    placeholder="Enter quantity"
+                >
+
+            </div>
+
+
+            <div
+                id="priceField"
+                class="field"
+            >
+
+                <label for="price">
+                    Price
+                </label>
+
+                <input
+                    id="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Enter price"
+                >
+
+            </div>
+
+
+            <div class="field">
+
+                <label for="traderId">
+                    Trader ID
+                </label>
+
+                <input
+                    id="traderId"
+                    type="text"
+                    value="trader-001"
+                    placeholder="Trader ID"
+                >
+
+            </div>
+
+
+            <button
+                id="submitOrder"
+                class="primary-button"
+                type="button"
+            >
+                Submit Buy Order
+            </button>
+
+
+            <div
+                id="orderMessage"
+                class="message hidden"
+            ></div>
+
+        </div>
+
+
+        <div class="panel orderbook-panel">
+
+            <div class="panel-header">
+
+                <div>
+                    <h2>Order Book</h2>
+                    <p id="orderBookSymbol">
+                        BTC-USD
+                    </p>
+                </div>
+
+                <div class="spread-display">
+                    Spread
+                    <strong id="orderBookSpread">
+                        —
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <div class="orderbook">
+
+                <div class="book-side">
+
+                    <div class="book-title sell-title">
+                        <span>Price</span>
+                        <span>Quantity</span>
+                    </div>
+
+                    <div
+                        id="asks"
+                        class="book-levels"
+                    >
+                        <div class="empty-state">
+                            No asks
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <div class="mid-price">
+
+                    <span>MARKET</span>
+
+                    <strong id="midPrice">
+                        —
+                    </strong>
+
+                </div>
+
+
+                <div class="book-side">
+
+                    <div class="book-title buy-title">
+                        <span>Price</span>
+                        <span>Quantity</span>
+                    </div>
+
+                    <div
+                        id="bids"
+                        class="book-levels"
+                    >
+                        <div class="empty-state">
+                            No bids
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="lower-grid">
+
+
+        <div class="panel trades-panel">
+
+            <div class="panel-header">
+
+                <div>
+                    <h2>Recent Trades</h2>
+
+                    <p>
+                        Live executions
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+                            <th>Time</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Symbol</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="tradesTable">
+
+                        <tr>
+                            <td
+                                colspan="4"
+                                class="empty-table"
+                            >
+                                No trades yet
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+
+        <div class="panel orders-panel">
+
+            <div class="panel-header">
+
+                <div>
+                    <h2>Orders</h2>
+
+                    <p>
+                        Your recent orders
+                    </p>
+                </div>
+
+                <button
+                    id="refreshOrders"
+                    class="secondary-button"
+                    type="button"
+                >
+                    Refresh
+                </button>
+
+            </div>
+
+
+            <div class="table-wrapper">
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+                            <th>Side</th>
+                            <th>Type</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Filled</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="ordersTable">
+
+                        <tr>
+                            <td
+                                colspan="7"
+                                class="empty-table"
+                            >
+                                No orders yet
+                            </td>
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="panel activity-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>Live Activity</h2>
+
+                <p>
+                    Exchange event stream
+                </p>
+            </div>
+
+            <button
+                id="clearActivity"
+                class="secondary-button"
+                type="button"
+            >
+                Clear
+            </button>
+
+        </div>
+
+
+        <div
+            id="activityLog"
+            class="activity-log"
+        ></div>
+
+    </section>
+
+</main>
+
+
+<script src="/terminal/app.js"></script>
+
+</body>
+</html><!-- Main page for the PulseX trading dashboard -->

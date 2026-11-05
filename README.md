@@ -1,37 +1,91 @@
-PulseX Exchange
+# PulseX Exchange
 
-A Python-based order matching engine that simulates the core functionality of a trading exchange.
+A real-time multi-symbol exchange simulation built with Python and FastAPI.
 
-Project Objective
+PulseX implements core exchange functionality including order matching, price-time priority, FIFO order queues, partial fills, market orders, order cancellation, trade execution, and real-time WebSocket market updates.
 
-Build a simple trading system that receives buy and sell orders, matches compatible orders and records executed trades.
+## Features
 
-Planned Features
+### Trading Engine
 
-* Limit and market orders
-* Price-time priority
-* FIFO order execution
-* Partial order fills
-* Order cancellation
-* Trade execution records
-* REST API using FastAPI
-* Real-time updates using WebSockets
-* Interactive trading dashboard
-* Automated testing and performance benchmarking
+- Limit orders
+- Market orders
+- Buy and sell orders
+- Price-time priority
+- FIFO matching
+- Partial fills
+- Multi-level market order execution
+- Order cancellation
+- Trade generation
+- Self-trade prevention
+- Order lifecycle tracking
 
-Technology Stack
+### Order Book
 
-* Python
-* FastAPI
-* HTML, CSS and JavaScript
-* WebSockets
-* Pytest
-* Git and GitHub
+- Separate order books for each symbol
+- Bid and ask price levels
+- Best bid and ask
+- Spread calculation
+- Market depth
+- FIFO queues at each price level
 
-Development Status
+### API
 
-Initial project setup. Features will be implemented and tested incrementally.
+- FastAPI REST API
+- Order submission
+- Order lookup
+- Order history
+- Order cancellation
+- Order-book queries
+- Trade history
+- Market-data endpoint
+- Health endpoint
 
-Project Scope
+### Real-Time Updates
 
-This project will initially use in-memory order storage and a single trading symbol. Database persistence, authentication and advanced exchange features may be considered later.
+WebSocket market feeds provide:
+
+- Order submissions
+- Trade executions
+- Order fills
+- Partial fills
+- Order cancellations
+- Order-book updates
+- Market-data updates
+
+### Trading Terminal
+
+The browser-based terminal provides:
+
+- BTC-USD and ETH-USD selection
+- Buy/sell order entry
+- Limit/market order selection
+- Quantity and price input
+- Live order book
+- Best bid and ask
+- Spread
+- Latest trade
+- Recent trades
+- Active orders
+- Order cancellation
+- Live event activity
+
+## Architecture
+
+```text
+                    Trading Terminal
+                           │
+                    REST / WebSocket
+                           │
+                           ▼
+                     FastAPI API
+                           │
+                           ▼
+                    Matching Engine
+                     │           │
+                     ▼           ▼
+                 Order Book   Trade/Event System
+                     │           │
+                     └─────┬─────┘
+                           ▼
+                    Real-Time Feed

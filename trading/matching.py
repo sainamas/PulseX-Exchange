@@ -15,6 +15,7 @@ class EventType(str, Enum):
     ORDER_PARTIALLY_FILLED = "ORDER_PARTIALLY_FILLED"
     ORDER_CANCELLED = "ORDER_CANCELLED"
     ORDER_BOOK_UPDATED = "ORDER_BOOK_UPDATED"
+    MARKET_DATA = "MARKET_DATA"
 
 
 @dataclass
@@ -82,7 +83,7 @@ class MatchingEngine:
 
         self.events.append(event)
 
-        for subscriber in self._subscribers:
+        for subscriber in list(self._subscribers):
             subscriber(event)
 
         return event
@@ -91,6 +92,27 @@ class MatchingEngine:
         self.publish_event(
             EventType.ORDER_BOOK_UPDATED,
             self.order_book.depth(),
+        )
+
+        self.publish_market_data()
+
+    def publish_market_data(self) -> None:
+        latest_trade = (
+            self.trades[-1].to_dict()
+            if self.trades
+            else None
+        )
+
+        self.publish_event(
+            EventType.MARKET_DATA,
+            {
+                "symbol": self.order_book.symbol,
+                "best_bid": self.order_book.best_bid(),
+                "best_ask": self.order_book.best_ask(),
+                "spread": self.order_book.spread(),
+                "order_book": self.order_book.depth(),
+                "latest_trade": latest_trade,
+            },
         )
 
     def submit_order(
@@ -109,7 +131,10 @@ class MatchingEngine:
 
         return self._match_market_order(order)
 
-    def _validate_order_symbol(self, order: Order) -> None:
+    def _validate_order_symbol(
+        self,
+        order: Order,
+    ) -> None:
         if order.symbol != self.order_book.symbol:
             raise ValueError(
                 f"Order symbol {order.symbol} does not match "
@@ -128,9 +153,15 @@ class MatchingEngine:
             if opposite is None:
                 break
 
-            self._prevent_self_trade(order, opposite)
+            self._prevent_self_trade(
+                order,
+                opposite,
+            )
 
-            if not self._prices_cross(order, opposite):
+            if not self._prices_cross(
+                order,
+                opposite,
+            ):
                 break
 
             trade = self._execute_trade(
@@ -143,11 +174,17 @@ class MatchingEngine:
             self.publish_order_book_update()
 
             if not opposite.is_active():
-                self.order_book.remove_order(opposite)
+                self.order_book.remove_order(
+                    opposite
+                )
+
                 self.publish_order_book_update()
 
         if order.is_active():
-            self.order_book.add_order(order)
+            self.order_book.add_order(
+                order
+            )
+
             self.publish_order_book_update()
 
         return trades
@@ -164,7 +201,10 @@ class MatchingEngine:
             if opposite is None:
                 break
 
-            self._prevent_self_trade(order, opposite)
+            self._prevent_self_trade(
+                order,
+                opposite,
+            )
 
             trade = self._execute_trade(
                 taker=order,
@@ -176,7 +216,10 @@ class MatchingEngine:
             self.publish_order_book_update()
 
             if not opposite.is_active():
-                self.order_book.remove_order(opposite)
+                self.order_book.remove_order(
+                    opposite
+                )
+
                 self.publish_order_book_update()
 
         return trades
@@ -244,9 +287,17 @@ class MatchingEngine:
 
         self.trades.append(trade)
 
-        self._publish_trade_event(trade)
-        self._publish_order_status_event(maker)
-        self._publish_order_status_event(taker)
+        self._publish_trade_event(
+            trade
+        )
+
+        self._publish_order_status_event(
+            maker
+        )
+
+        self._publish_order_status_event(
+            taker
+        )
 
         return trade
 

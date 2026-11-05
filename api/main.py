@@ -1,8 +1,11 @@
 import asyncio
 from contextlib import asynccontextmanager
-from queue import Queue, Empty
+from pathlib import Path
+from queue import Empty, Queue
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from trading.matching import EventType, MatchingEngine
@@ -83,14 +86,6 @@ def create_event_subscriber(symbol: str):
 
 
 def reset_exchange_state():
-    """
-    Reset the in-memory exchange state.
-
-    This is mainly useful for tests and local development.
-    Each symbol receives a fresh order book and matching engine,
-    while the WebSocket event subscriber remains attached.
-    """
-
     order_books.clear()
     engines.clear()
     orders.clear()
@@ -121,8 +116,32 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="PulseX Exchange API",
     version="1.0.0",
+    description="Real-time multi-symbol exchange simulation.",
     lifespan=lifespan,
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+WEB_DIR = (
+    Path(__file__).resolve().parent.parent / "web"
+)
+
+if WEB_DIR.exists():
+    app.mount(
+        "/terminal",
+        StaticFiles(
+            directory=WEB_DIR,
+            html=True,
+        ),
+        name="terminal",
+    )
 
 
 @app.get("/health")
@@ -182,7 +201,9 @@ def submit_order(
 def get_order(
     order_id: str,
 ):
-    order = orders.get(order_id)
+    order = orders.get(
+        order_id
+    )
 
     if order is None:
         raise HTTPException(
@@ -236,7 +257,9 @@ def get_orders(
 def cancel_order(
     order_id: str,
 ):
-    order = orders.get(order_id)
+    order = orders.get(
+        order_id
+    )
 
     if order is None:
         raise HTTPException(
@@ -249,18 +272,20 @@ def cancel_order(
 
         order_books[
             order.symbol
-        ].remove_order(order)
+        ].remove_order(
+            order
+        )
 
-        engines[
+        engine = engines[
             order.symbol
-        ].publish_event(
+        ]
+
+        engine.publish_event(
             EventType.ORDER_CANCELLED,
             order.to_dict(),
         )
 
-        engines[
-            order.symbol
-        ].publish_order_book_update()
+        engine.publish_order_book_update()
 
         return order.to_dict()
 
@@ -286,6 +311,44 @@ def get_orderbook(
     return order_books[
         symbol
     ].depth()
+
+
+@app.get("/market-data/{symbol}")
+def get_market_data(
+    symbol: str,
+):
+    symbol = symbol.upper()
+
+    if symbol not in SYMBOLS:
+        raise HTTPException(
+            status_code=404,
+            detail="Unknown symbol",
+        )
+
+    engine = engines[symbol]
+
+    latest_trade = (
+        engine.trades[-1].to_dict()
+        if engine.trades
+        else None
+    )
+
+    return {
+        "symbol": symbol,
+        "best_bid": order_books[
+            symbol
+        ].best_bid(),
+        "best_ask": order_books[
+            symbol
+        ].best_ask(),
+        "spread": order_books[
+            symbol
+        ].spread(),
+        "order_book": order_books[
+            symbol
+        ].depth(),
+        "latest_trade": latest_trade,
+    }
 
 
 @app.get("/trades/{symbol}")

@@ -1,36 +1,92 @@
+# PulseX Exchange Architecture
 
-## 8. Order Execution Workflow
+## 1. Overview
 
-The following diagram illustrates how a buy or sell order will travel through PulseX Exchange.
+PulseX is a real-time multi-symbol exchange simulation built with Python and FastAPI.
 
-```mermaid
-flowchart TD
-    A["User submits BUY or SELL order"]
-    B["FastAPI receives request"]
-    C["Pydantic validates order"]
-    D{"Is order valid?"}
-    E["Return validation error"]
-    F["Matching engine receives order"]
-    G["Check opposite order book"]
-    H{"Can orders match?"}
-    I["Execute trade"]
-    J["Update remaining quantity"]
-    K{"Incoming order fully filled?"}
-    L["Add remaining limit order to order book"]
-    M["Record completed trade"]
-    N["Send WebSocket notification"]
-    O["Return order status"]
-    P["Finish"]
+The system is separated into multiple layers so that the core trading logic is independent from the API and web interface.
 
-    A --> B --> C --> D
-    D -->|No| E
-    D -->|Yes| F --> G --> H
-    H -->|Yes| I --> J --> K
-    K -->|No| G
-    K -->|Yes| M
-    H -->|No| L
-    L --> O
-    M --> N --> O
-    E --> P
-    O --> P
-```
+### Main layers
+
+- Web Trading Terminal
+- FastAPI API
+- Order Model
+- Matching Engine
+- Order Book
+- Trade and Event System
+- WebSocket Market Feed
+- In-memory Order Registry
+
+The current implementation supports BTC-USD and ETH-USD trading with limit orders, market orders, price-time priority, FIFO execution, partial fills, order cancellation, self-trade prevention, REST APIs, and real-time WebSocket updates.
+
+---
+
+## 2. System Architecture
+
+```text
+                         ┌─────────────────────────┐
+                         │       Web Browser        │
+                         │     PulseX Terminal      │
+                         │        web/              │
+                         └────────────┬────────────┘
+                                      │
+                          REST API / WebSocket
+                                      │
+                                      ▼
+                         ┌─────────────────────────┐
+                         │       FastAPI API        │
+                         │      api/main.py         │
+                         └────────────┬────────────┘
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    │                 │                 │
+                    ▼                 ▼                 ▼
+            ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+            │ Order Registry│ │ Request       │ │ WebSocket     │
+            │ orders dict   │ │ Validation    │ │ Connection    │
+            │               │ │               │ │ Manager       │
+            └───────┬───────┘ └───────┬───────┘ └───────┬───────┘
+                    │                  │                 │
+                    └──────────────────┼─────────────────┘
+                                       │
+                                       ▼
+                         ┌─────────────────────────┐
+                         │     Matching Engine      │
+                         │    trading/matching.py   │
+                         └────────────┬────────────┘
+                                      │
+                                      ▼
+                         ┌─────────────────────────┐
+                         │       Order Book         │
+                         │   trading/order_book.py  │
+                         └────────────┬────────────┘
+                                      │
+                         ┌────────────┴────────────┐
+                         │                         │
+                         ▼                         ▼
+                 ┌──────────────┐         ┌──────────────┐
+                 │ Bid Levels   │         │ Ask Levels   │
+                 │ FIFO Queues  │         │ FIFO Queues  │
+                 └──────────────┘         └──────────────┘
+                                      │
+                                      ▼
+                         ┌─────────────────────────┐
+                         │     Trade / Event        │
+                         │        System            │
+                         └────────────┬────────────┘
+                                      │
+                         ┌────────────┴────────────┐
+                         │                         │
+                         ▼                         ▼
+                 ┌──────────────┐         ┌──────────────┐
+                 │ Trade History│         │ Market Data  │
+                 │              │         │ Events       │
+                 └──────────────┘         └───────┬──────┘
+                                                  │
+                                                  ▼
+                                         ┌────────────────┐
+                                         │ WebSocket Feed │
+                                         └───────┬────────┘
+                                                 │
+                                                 ▼
+                                         PulseX Terminal

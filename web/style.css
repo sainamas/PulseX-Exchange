@@ -1,1 +1,889 @@
-/* Styles for the PulseX trading dashboard */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #080b12;
+    --panel: #101621;
+    --panel-light: #151c29;
+    --border: #252d3d;
+    --text: #f4f7fb;
+    --muted: #8d98aa;
+    --green: #2ed573;
+    --red: #ff5c5c;
+    --blue: #4da3ff;
+    --yellow: #f5c451;
+}
+
+body {
+    min-height: 100vh;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(77, 163, 255, 0.08),
+            transparent 32%
+        ),
+        var(--bg);
+
+    color: var(--text);
+
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    font-size: 14px;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.topbar {
+    height: 72px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 28px;
+
+    border-bottom: 1px solid var(--border);
+
+    background: rgba(8, 11, 18, 0.92);
+
+    position: sticky;
+    top: 0;
+    z-index: 10;
+
+    backdrop-filter: blur(14px);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-mark {
+    width: 38px;
+    height: 38px;
+
+    display: grid;
+    place-items: center;
+
+    border-radius: 10px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #4da3ff,
+            #7c5cff
+        );
+
+    color: white;
+
+    font-weight: 800;
+    font-size: 13px;
+
+    box-shadow:
+        0 0 24px rgba(77, 163, 255, 0.2);
+}
+
+.brand h1 {
+    font-size: 19px;
+    line-height: 1;
+}
+
+.brand span {
+    display: block;
+
+    margin-top: 4px;
+
+    color: var(--muted);
+
+    font-size: 11px;
+
+    letter-spacing: 0.4px;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+
+    border-radius: 50%;
+
+    background: var(--red);
+
+    box-shadow:
+        0 0 10px rgba(255, 92, 92, 0.6);
+}
+
+.status-dot.online {
+    background: var(--green);
+
+    box-shadow:
+        0 0 10px rgba(46, 213, 115, 0.7);
+}
+
+.status-dot.offline {
+    background: var(--red);
+}
+
+.dashboard {
+    width: min(1500px, 94vw);
+
+    margin: 28px auto 60px;
+}
+
+.market-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-bottom: 18px;
+}
+
+.symbol-selector {
+    display: flex;
+    gap: 8px;
+}
+
+.symbol-button {
+    border: 1px solid var(--border);
+
+    background: var(--panel);
+
+    color: var(--muted);
+
+    padding: 10px 18px;
+
+    border-radius: 8px;
+
+    font-weight: 600;
+}
+
+.symbol-button:hover {
+    border-color: #3b465c;
+    color: var(--text);
+}
+
+.symbol-button.active {
+    background: rgba(77, 163, 255, 0.12);
+
+    border-color: rgba(77, 163, 255, 0.55);
+
+    color: var(--blue);
+}
+
+.market-stats {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(120px, 1fr));
+
+    gap: 10px;
+
+    flex: 1;
+
+    max-width: 760px;
+}
+
+.stat-card {
+    padding: 12px 15px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--panel);
+}
+
+.stat-card span {
+    display: block;
+
+    color: var(--muted);
+
+    font-size: 10px;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.7px;
+
+    margin-bottom: 6px;
+}
+
+.stat-card strong {
+    font-size: 16px;
+
+    font-variant-numeric: tabular-nums;
+}
+
+.trading-grid {
+    display: grid;
+
+    grid-template-columns:
+        minmax(300px, 0.8fr)
+        minmax(500px, 1.7fr);
+
+    gap: 18px;
+
+    margin-bottom: 18px;
+}
+
+.panel {
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(16, 22, 33, 0.98),
+            rgba(13, 18, 28, 0.98)
+        );
+
+    overflow: hidden;
+}
+
+.panel-header {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding: 18px 20px;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.panel-header h2 {
+    font-size: 15px;
+    font-weight: 650;
+}
+
+.panel-header p {
+    margin-top: 4px;
+
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+.order-panel {
+    padding-bottom: 20px;
+}
+
+.order-panel .panel-header {
+    margin-bottom: 18px;
+}
+
+.side-selector {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 8px;
+
+    padding: 0 20px;
+
+    margin-bottom: 18px;
+}
+
+.side-button {
+    border: 1px solid var(--border);
+
+    background: var(--panel-light);
+
+    color: var(--muted);
+
+    padding: 11px;
+
+    border-radius: 7px;
+
+    font-weight: 700;
+}
+
+.side-button.buy.active {
+    border-color: rgba(46, 213, 115, 0.6);
+
+    background: rgba(46, 213, 115, 0.1);
+
+    color: var(--green);
+}
+
+.side-button.sell.active {
+    border-color: rgba(255, 92, 92, 0.6);
+
+    background: rgba(255, 92, 92, 0.1);
+
+    color: var(--red);
+}
+
+.field {
+    padding: 0 20px;
+
+    margin-bottom: 15px;
+}
+
+.field label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: var(--muted);
+
+    font-size: 11px;
+
+    font-weight: 600;
+}
+
+.field input,
+.field select {
+    width: 100%;
+
+    border: 1px solid var(--border);
+
+    border-radius: 7px;
+
+    background: #0b1019;
+
+    color: var(--text);
+
+    padding: 10px 11px;
+
+    outline: none;
+}
+
+.field input:focus,
+.field select:focus {
+    border-color: rgba(77, 163, 255, 0.7);
+
+    box-shadow:
+        0 0 0 3px rgba(77, 163, 255, 0.08);
+}
+
+.primary-button {
+    width: calc(100% - 40px);
+
+    margin: 2px 20px 0;
+
+    border: 0;
+
+    border-radius: 8px;
+
+    padding: 12px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #327fd1,
+            #4d9ef0
+        );
+
+    color: white;
+
+    font-weight: 700;
+
+    transition:
+        transform 0.12s ease,
+        opacity 0.12s ease;
+}
+
+.primary-button:hover {
+    transform: translateY(-1px);
+}
+
+.primary-button.sell-mode {
+    background:
+        linear-gradient(
+            135deg,
+            #d94343,
+            #f05a5a
+        );
+}
+
+.message {
+    margin: 14px 20px 0;
+
+    padding: 10px;
+
+    border-radius: 7px;
+
+    font-size: 11px;
+
+    line-height: 1.5;
+}
+
+.message.success {
+    border: 1px solid rgba(46, 213, 115, 0.3);
+
+    background: rgba(46, 213, 115, 0.08);
+
+    color: var(--green);
+}
+
+.message.error {
+    border: 1px solid rgba(255, 92, 92, 0.3);
+
+    background: rgba(255, 92, 92, 0.08);
+
+    color: var(--red);
+}
+
+.hidden {
+    display: none;
+}
+
+.orderbook-panel {
+    min-height: 500px;
+}
+
+.spread-display {
+    color: var(--muted);
+
+    font-size: 10px;
+
+    text-align: right;
+}
+
+.spread-display strong {
+    display: block;
+
+    color: var(--text);
+
+    margin-top: 3px;
+
+    font-size: 12px;
+}
+
+.orderbook {
+    padding: 18px 20px 24px;
+}
+
+.book-side {
+    width: 100%;
+}
+
+.book-title {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    padding: 0 10px 8px;
+
+    color: var(--muted);
+
+    font-size: 10px;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.6px;
+}
+
+.book-title span:last-child {
+    text-align: right;
+}
+
+.book-levels {
+    min-height: 92px;
+}
+
+.book-row {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    padding: 5px 10px;
+
+    border-radius: 4px;
+
+    font-size: 11px;
+
+    font-variant-numeric: tabular-nums;
+}
+
+.book-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.book-row span:last-child {
+    text-align: right;
+}
+
+.ask-row span:first-child {
+    color: var(--red);
+}
+
+.bid-row span:first-child {
+    color: var(--green);
+}
+
+.mid-price {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 10px;
+
+    margin: 12px 0;
+
+    padding: 10px;
+
+    border-top: 1px solid var(--border);
+
+    border-bottom: 1px solid var(--border);
+
+    color: var(--muted);
+
+    font-size: 10px;
+
+    letter-spacing: 0.7px;
+}
+
+.mid-price strong {
+    color: var(--text);
+
+    font-size: 13px;
+}
+
+.empty-state {
+    display: grid;
+
+    place-items: center;
+
+    min-height: 70px;
+
+    color: #657084;
+
+    font-size: 11px;
+}
+
+.lower-grid {
+    display: grid;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        minmax(0, 1.4fr);
+
+    gap: 18px;
+
+    margin-bottom: 18px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+
+    border-collapse: collapse;
+}
+
+thead {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+th {
+    padding: 11px 12px;
+
+    color: var(--muted);
+
+    font-size: 9px;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.7px;
+
+    text-align: left;
+
+    font-weight: 600;
+
+    white-space: nowrap;
+}
+
+td {
+    padding: 11px 12px;
+
+    border-top: 1px solid rgba(37, 45, 61, 0.65);
+
+    color: #dce2ec;
+
+    font-size: 11px;
+
+    white-space: nowrap;
+}
+
+tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.empty-table {
+    text-align: center;
+
+    color: #657084;
+
+    padding: 25px;
+}
+
+.side-buy {
+    color: var(--green);
+    font-weight: 700;
+}
+
+.side-sell {
+    color: var(--red);
+    font-weight: 700;
+}
+
+.status {
+    display: inline-flex;
+
+    padding: 4px 7px;
+
+    border-radius: 5px;
+
+    font-size: 9px;
+
+    font-weight: 700;
+
+    letter-spacing: 0.3px;
+}
+
+.status-new {
+    color: var(--blue);
+
+    background: rgba(77, 163, 255, 0.1);
+}
+
+.status-partially-filled {
+    color: var(--yellow);
+
+    background: rgba(245, 196, 81, 0.1);
+}
+
+.status-filled {
+    color: var(--green);
+
+    background: rgba(46, 213, 115, 0.1);
+}
+
+.status-cancelled {
+    color: var(--red);
+
+    background: rgba(255, 92, 92, 0.1);
+}
+
+.cancel-button {
+    border: 1px solid rgba(255, 92, 92, 0.35);
+
+    border-radius: 5px;
+
+    padding: 5px 8px;
+
+    background: transparent;
+
+    color: var(--red);
+
+    font-size: 9px;
+
+    font-weight: 700;
+}
+
+.cancel-button:hover {
+    background: rgba(255, 92, 92, 0.08);
+}
+
+.cancel-button:disabled {
+    color: #596274;
+
+    border-color: #303847;
+}
+
+.secondary-button {
+    border: 1px solid var(--border);
+
+    border-radius: 6px;
+
+    padding: 7px 10px;
+
+    background: transparent;
+
+    color: var(--muted);
+
+    font-size: 10px;
+
+    font-weight: 600;
+}
+
+.secondary-button:hover {
+    border-color: #3b465c;
+    color: var(--text);
+}
+
+.activity-panel {
+    margin-bottom: 20px;
+}
+
+.activity-log {
+    height: 180px;
+
+    padding: 14px 18px;
+
+    overflow-y: auto;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+
+    font-size: 10px;
+}
+
+.activity-entry {
+    display: grid;
+
+    grid-template-columns: 75px 150px 1fr;
+
+    gap: 12px;
+
+    padding: 7px 0;
+
+    border-bottom: 1px solid rgba(37, 45, 61, 0.45);
+}
+
+.activity-time {
+    color: #657084;
+}
+
+.activity-type {
+    color: var(--blue);
+
+    font-weight: 700;
+}
+
+.activity-data {
+    color: #aeb8c8;
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+    .market-header {
+        align-items: stretch;
+
+        flex-direction: column;
+    }
+
+    .market-stats {
+        max-width: none;
+    }
+
+    .trading-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .lower-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    .topbar {
+        padding: 0 15px;
+    }
+
+    .dashboard {
+        width: calc(100% - 24px);
+
+        margin-top: 18px;
+    }
+
+    .brand span {
+        display: none;
+    }
+
+    .market-stats {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+    .symbol-selector {
+        width: 100%;
+    }
+
+    .symbol-button {
+        flex: 1;
+    }
+
+    .panel-header {
+        padding: 15px;
+    }
+
+    .field,
+    .side-selector {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    .primary-button {
+        width: calc(100% - 30px);
+        margin-left: 15px;
+        margin-right: 15px;
+    }
+
+    .message {
+        margin-left: 15px;
+        margin-right: 15px;
+    }
+
+    .orderbook {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .activity-entry {
+        grid-template-columns:
+            60px 110px 1fr;
+
+        gap: 8px;
+    }
+}/* Styles for the PulseX trading dashboard */
