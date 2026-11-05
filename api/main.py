@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-from trading.matching import EventType, MatchingEngine
+from trading.matching import Event, EventType, MatchingEngine
 from trading.order import Order, OrderSide, OrderType
 from trading.order_book import OrderBook
 
@@ -23,6 +23,51 @@ class OrderRequest(BaseModel):
     quantity: float = Field(gt=0)
     price: float | None = Field(default=None, gt=0)
     trader_id: str = "anonymous"
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.connections:
+            self.connections.remove(websocket)
+
+    async def broadcast(self, event: Event):
+        disconnected = []
+
+        for websocket in self.connections:
+            try:
+                await websocket.send_json(event.to_dict())
+            except Exception:
+                disconnected.append(websocket)
+
+        for websocket in disconnected:
+            self.disconnect(websocket)
+
+
+manager = ConnectionManager()
+
+
+@app.on_event("startup")
+async def startup():
+    async def publish(event: Event):
+        await manager.broadcast(event)
+
+    def subscriber(event: Event):
+        import asyncio
+
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(publish(event))
+        except RuntimeError:
+            pass
+
+    engine.subscribe(subscriber)
 
 
 @app.get("/health")
@@ -132,3 +177,20 @@ def get_trades():
         trade.to_dict()
         for trade in engine.trades
     ]
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+
+    try:
+        await websocket.send_json({
+            "event_type": "ORDERBOOK_SNAPSHOT",
+            "data": order_book.depth(),
+        })
+
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
