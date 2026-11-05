@@ -66,6 +66,23 @@ class MatchingEngine:
     def subscribe(self, callback: Callable[[Event], None]) -> None:
         self._subscribers.append(callback)
 
+    def publish_event(
+        self,
+        event_type: EventType,
+        data: dict,
+    ) -> Event:
+        event = Event(
+            event_type=event_type,
+            data=data,
+        )
+
+        self.events.append(event)
+
+        for subscriber in self._subscribers:
+            subscriber(event)
+
+        return event
+
     def submit_order(self, order: Order) -> list[Trade]:
         if order.symbol != self.order_book.symbol:
             raise ValueError(
@@ -73,7 +90,7 @@ class MatchingEngine:
                 f"order book symbol {self.order_book.symbol}"
             )
 
-        self._publish(
+        self.publish_event(
             EventType.ORDER_SUBMITTED,
             order.to_dict(),
         )
@@ -101,7 +118,11 @@ class MatchingEngine:
             if not self._prices_cross(order, opposite):
                 break
 
-            trade = self._execute_trade(order, opposite)
+            trade = self._execute_trade(
+                order,
+                opposite,
+            )
+
             trades.append(trade)
 
             if not opposite.is_active():
@@ -127,7 +148,11 @@ class MatchingEngine:
                     "orders from the same trader cannot match"
                 )
 
-            trade = self._execute_trade(order, opposite)
+            trade = self._execute_trade(
+                order,
+                opposite,
+            )
+
             trades.append(trade)
 
             if not opposite.is_active():
@@ -135,18 +160,28 @@ class MatchingEngine:
 
         return trades
 
-    def _get_opposite_order(self, order: Order) -> Order | None:
+    def _get_opposite_order(
+        self,
+        order: Order,
+    ) -> Order | None:
         if order.side == OrderSide.BUY:
-            return self.order_book.get_best_order(OrderSide.SELL)
+            return self.order_book.get_best_order(
+                OrderSide.SELL
+            )
 
-        return self.order_book.get_best_order(OrderSide.BUY)
+        return self.order_book.get_best_order(
+            OrderSide.BUY
+        )
 
     def _prices_cross(
         self,
         incoming: Order,
         resting: Order,
     ) -> bool:
-        if incoming.price is None or resting.price is None:
+        if (
+            incoming.price is None
+            or resting.price is None
+        ):
             return True
 
         if incoming.side == OrderSide.BUY:
@@ -177,46 +212,31 @@ class MatchingEngine:
 
         self.trades.append(trade)
 
-        self._publish(
+        self.publish_event(
             EventType.TRADE_EXECUTED,
             trade.to_dict(),
         )
 
         if maker.status.value == "FILLED":
-            self._publish(
+            self.publish_event(
                 EventType.ORDER_FILLED,
                 maker.to_dict(),
             )
         else:
-            self._publish(
+            self.publish_event(
                 EventType.ORDER_PARTIALLY_FILLED,
                 maker.to_dict(),
             )
 
         if taker.status.value == "FILLED":
-            self._publish(
+            self.publish_event(
                 EventType.ORDER_FILLED,
                 taker.to_dict(),
             )
         else:
-            self._publish(
+            self.publish_event(
                 EventType.ORDER_PARTIALLY_FILLED,
                 taker.to_dict(),
             )
 
         return trade
-
-    def _publish(
-        self,
-        event_type: EventType,
-        data: dict,
-    ) -> None:
-        event = Event(
-            event_type=event_type,
-            data=data,
-        )
-
-        self.events.append(event)
-
-        for subscriber in self._subscribers:
-            subscriber(event)
