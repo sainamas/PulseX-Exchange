@@ -1,8 +1,8 @@
-# PulseX Exchange
+# TradeX — Real-Time Order Matching Engine
 
 A real-time multi-symbol exchange simulation built with Python and FastAPI.
 
-PulseX implements core exchange functionality including order matching, price-time priority, FIFO order queues, partial fills, market orders, order cancellation, trade execution, and real-time WebSocket market updates.
+TradeX — Real-Time Order Matching Engine implements core exchange functionality including order matching, price-time priority, FIFO order queues, partial fills, market orders, order cancellation, trade execution, and real-time WebSocket market updates.
 
 ## Features
 
